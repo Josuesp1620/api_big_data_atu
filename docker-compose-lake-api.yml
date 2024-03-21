@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  backend_atu_api:
+    container_name: backend_atu_api
+    build: .
+    image: backend_atu_api
+    ports:
+      - "3071:3071"
+    restart: unless-stopped
