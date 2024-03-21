@@ -1,0 +1,24 @@
+name: Deploy Api Big Data ATU Prod
+on:
+  push:
+    branches: [ "main" ]
+jobs:
+
+  build:
+
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # Pasos para detener y eliminar contenedores Docker
+    - name: Stop and remove container
+      run: docker stop backend_atu_api && docker rm backend_atu_api || true
+
+    # Pasos para eliminar imágenes Docker
+    - name: Remove Docker image
+      run: docker rmi -f backend_atu_api || true
+
+    # Pasos para ejecutar docker-compose
+    - name: Run docker-compose
+      run: docker compose -f docker-compose-api-big-data.yml up -d
