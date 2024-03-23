@@ -9,7 +9,8 @@ from functions.query_server import (
     get_data_api, 
     create_query_sum_all_viajes, 
     get_data_centroid_api,
-    query_get_data_calculate_dashboard
+    query_get_data_calculate_dashboard,
+    create_query_get_data_for_export_excel
 )
 import concurrent.futures
 
@@ -30,7 +31,11 @@ def Random_Points_in_Polygon(polygon, number):
 def filter_data():
     query_target = request.json
     querty_type = query_target["type"]
+    querty_limit = int(query_target["limit"])
+    querty_order_by = query_target["order_by"]
     del query_target["type"]
+    del query_target["limit"]
+    del query_target["order_by"]
     max_suma_viajes = 0
 
     # Función para realizar una consulta
@@ -41,7 +46,7 @@ def filter_data():
 
     # Función para crear las consultas  
     def create_queries():
-        query_destination = create_query_get_data_for_arc_layer(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', limit=5)
+        query_destination = create_query_get_data_for_arc_layer(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', limit=querty_limit, order_by=querty_order_by)
         query_sum_all = create_query_sum_all_viajes(query_target=query_target, table_name='source_target_parquet_data_mayo_2019')
         # query_all = create_query_get(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', columns="all")
         return [{"sql": query_destination}, {"sql": query_sum_all}]
@@ -106,7 +111,8 @@ def filter_data():
         'status': 'success',
         'data': {
             'source': source_result,
-            'target': features_taget
+            'target': features_taget,
+            'url_xlsx' : create_query_get_data_for_export_excel(query_target=query_target, table_name='source_target_parquet_data_mayo_2019')
         }
     }
 
@@ -118,6 +124,8 @@ def filter_data():
 def data_dash_board():
     query_target = request.json
     del query_target["type"]
+    del query_target["limit"]
+    del query_target["order_by"]
 
     def execute_query(params):
         return get_data_api(params=params)
@@ -139,7 +147,7 @@ def data_dash_board():
         results = list(executor.map(execute_query, queries))
 
     formatted_data = {}
-    print(results)
+
     for group in results:
         key = list(group[0].keys())[0]
         formatted_data[key] = group
