@@ -1,4 +1,4 @@
-from pypika import Query, Table, functions as fn, Order
+from pypika import Query, Table, functions as fn, Order, enums
 
 import requests
 # URL de ejemplo
@@ -33,7 +33,7 @@ def create_query_sum_all_viajes(query_target, table_name):
     filtered_query = {key: value for key, value in query_target.items() if len(value) != 0}
 
     # SELECT
-    query = Query.from_(table).select(fn.Sum(table.viajes, "sum_viajes_all"))
+    query = Query.from_(table).select(fn.Cast(fn.Function("ROUND",fn.Sum(table.viajes), -1), enums.SqlTypes.INTEGER).as_("sum_viajes_all"))
 
     # WHERE dinámico
     for key, value in filtered_query.items():
@@ -50,7 +50,7 @@ def create_query_get_data_for_arc_layer(query_target, table_name, limit=5, order
     filtered_query = {key: value for key, value in query_target.items() if len(value) != 0}
 
     field = [key for key, value in filtered_query.items() if key.startswith("taz_")]
-    query = Query.from_(table).select(field[0].replace("_o", "_d"), fn.Sum(table.viajes).as_("suma_viajes")).limit(limit)
+    query = Query.from_(table).select(field[0].replace("_o", "_d"), fn.Cast(fn.Function("ROUND",fn.Sum(table.viajes), -1), enums.SqlTypes.INTEGER).as_("suma_viajes")).limit(limit)
 
     # WHERE dinámico
     for key, value in filtered_query.items():
@@ -103,7 +103,7 @@ def query_get_data_calculate_dashboard(query_target, table_name, f_calculate):
 
     filtered_query = {key: value for key, value in query_target.items() if len(value) != 0}
 
-    query = Query.from_(table).select(f_calculate, fn.Function("ROUND",fn.Sum(table.viajes), -1).as_("suma_viajes"))
+    query = Query.from_(table).select(f_calculate, fn.Cast(fn.Function("ROUND",fn.Sum(table.viajes), -1), enums.SqlTypes.INTEGER).as_("suma_viajes"))
 
     # WHERE dinámico
     for key, value in filtered_query.items():
