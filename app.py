@@ -10,7 +10,8 @@ from functions.query_server import (
     create_query_sum_all_viajes, 
     get_data_centroid_api,
     query_get_data_calculate_dashboard,
-    create_query_get_data_for_export_excel
+    create_query_get_data_for_export_excel,
+    download_files
 )
 import concurrent.futures
 
@@ -107,6 +108,7 @@ def filter_data():
         feature = Feature(geometry=point, properties=feature)
         features_taget.append(feature)
 
+    # download_files(create_query_get_data_for_export_excel(query_target=query_target, table_name='source_target_parquet_data_mayo_2019'))
     response = {
         'status': 'success',
         'data': {

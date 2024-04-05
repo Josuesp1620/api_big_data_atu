@@ -83,12 +83,27 @@ def create_query_get_data_for_export_excel(query_target, table_name):
     sql_query = str(query).replace('\"', '')
     return f"{url}/sql?sql={sql_query}&format=xlsx"
 
+def download_files(url_download):
+    # Realizar la solicitud GET para obtener el archivo
+    respuesta = requests.get(url_download, stream=True)  # Usar stream=True para descargar por chunks
+
+    # Verificar si la solicitud fue exitosa (código 200)
+    if respuesta.status_code == 200:
+        # Guardar el contenido de la respuesta en un archivo local por chunks
+        with open("archivo_descargado.xlsx", 'wb') as archivo:
+            for chunk in respuesta.iter_content(chunk_size=1024):  # Descargar chunks de 1024 bytes
+                if chunk:  # Verificar que el chunk tenga contenido
+                    archivo.write(chunk)
+        print("Archivo descargado correctamente.")
+    else:
+        print("Error al descargar el archivo:", respuesta.status_code)
+
 def query_get_data_calculate_dashboard(query_target, table_name, f_calculate):
     table = Table(table_name)
 
     filtered_query = {key: value for key, value in query_target.items() if len(value) != 0}
 
-    query = Query.from_(table).select(f_calculate, fn.Function("ROUND",fn.Sum(table.viajes), 2).as_("suma_viajes"))
+    query = Query.from_(table).select(f_calculate, fn.Function("ROUND",fn.Sum(table.viajes), -1).as_("suma_viajes"))
 
     # WHERE dinámico
     for key, value in filtered_query.items():
