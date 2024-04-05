@@ -27,22 +27,17 @@ def Random_Points_in_Polygon(polygon, number):
             points.append(pnt)
     return points
 
-def get_data_body(request):
+@app.route('/filter_data', methods=['POST'])
+def filter_data():
     query_target = request.json
-    query_type = query_target["type"]
-    query_limit = int(query_target["limit"])
-    query_order_by = query_target["order_by"]
+    querty_type = query_target["type"]
+    querty_limit = int(query_target["limit"])
+    querty_order_by = query_target["order_by"]
     del query_target["type"]
     del query_target["limit"]
     del query_target["order_by"]
-    return {    
-        "query_target": query_target,
-        "query_type": query_type,
-        "query_limit": query_limit,
-        "query_order_by": query_order_by
-    }
+    max_suma_viajes = 0
 
-def execute_queries_initial(query_target, query_limit, query_order_by, field):
     # Función para realizar una consulta
     def execute_query(params):
         # Aquí deberías tener la lógica para ejecutar tu consulta utilizando la API
@@ -51,66 +46,43 @@ def execute_queries_initial(query_target, query_limit, query_order_by, field):
 
     # Función para crear las consultas  
     def create_queries():
-        query_destination = create_query_get_data_for_arc_layer(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', limit=query_limit, order_by=query_order_by, field=field)
+        query_destination = create_query_get_data_for_arc_layer(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', limit=querty_limit, order_by=querty_order_by)
         query_sum_all = create_query_sum_all_viajes(query_target=query_target, table_name='source_target_parquet_data_mayo_2019')
         # query_all = create_query_get(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', columns="all")
         return [{"sql": query_destination}, {"sql": query_sum_all}]
-        # Obtiene las consultas a ejecutar
+
+    # Obtiene las consultas a ejecutar
     queries = create_queries()
 
     # Ejecuta ambas consultas en paralelo
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Ejecuta las consultas y guarda los resultados en una lista
         results = list(executor.map(execute_query, queries))
-    return results
 
-def get_one_data_centroid(query_target, query_type, field):
-    _type = "source"
-
-    if(field == 'taz_dist_d'):
-        _type = "target"
-
-    # Obtener los datos fuente
-    result = get_data_centroid_api(body={"taz":query_target[field][0]}, tag_name="data_centroid", name_name=query_type)[0]
-    del result['geometry']
-    # Crear una lista de features
-    result["centroid"] = result['lon'], result['lat']
-    result["type"] = _type
-    result = Feature(geometry=Point((result['lon'], result['lat'])), properties=result)
-    return result
-
-def get_multiple_data_centroid(one_data_centroid, query_type, field, results_queries_initial):
-    max_suma_viajes = 0
-    _type = "target"
-    if(field == 'taz_dist_d'):
-        _type = "source"
-        if('dist' in field):
-            field = field.replace('_dist_d', '_dist_o')
-        else:
-            field = field.replace('_d', '_o')
-    else:
-        if('dist' in field):
-            field = field.replace('_dist_o', '_dist_d')
-        else:
-            field = field.replace('_o', '_d')
+    field = [key for key, value in query_target.items() if len(value) != 0 and key.startswith("taz_") and key.endswith("_o")][0]
+    
     # Función para obtener los datos del API de centroides
     def get_centroid_data(item, field):
-        nonlocal max_suma_viajes
-        target = get_data_centroid_api(body={"taz":item[field]}, tag_name="data_centroid", name_name=query_type)[0]                
-        if item[field] == one_data_centroid["properties"]["taz"]:
+        nonlocal max_suma_viajes  # Agregar esta línea
+        target = get_data_centroid_api(body={"taz":item[field.replace('_o', '_d')]}, tag_name="data_centroid", name_name=querty_type)[0]        
+        if item[field.replace('_o', '_d')] == source_result["taz"]:
             points = Random_Points_in_Polygon(loads(target["geometry"]), 1)        
             target['lat'] = points[0].y
-            target['lon'] = points[0].x   
-        max_suma_viajes += item["suma_viajes"]     
+            target['lon'] = points[0].x        
         target['suma_viajes'] = item["suma_viajes"]
+        max_suma_viajes += item["suma_viajes"]
         del target['geometry']
         return target
+
+    # Obtener los datos fuente
+    source_result = get_data_centroid_api(body={"taz":query_target[field][0]}, tag_name="data_centroid", name_name=querty_type)[0]
+    del source_result['geometry']
 
     # Obtener los resultados en paralelo
     target_final = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Mapear las llamadas a la función get_centroid_data con los datos de entrada
-        future_to_item = {executor.submit(get_centroid_data, item, field): item for item in results_queries_initial[0]}
+        future_to_item = {executor.submit(get_centroid_data, item, field): item for item in results[0]}
         for future in concurrent.futures.as_completed(future_to_item):
             try:
                 result = future.result()
@@ -119,36 +91,29 @@ def get_multiple_data_centroid(one_data_centroid, query_type, field, results_que
                 print(f'Error en la llamada: {exc}')
 
     # Crear una lista de features
+    source_result["centroid"] = source_result['lon'], source_result['lat']
+    source_result["type"] = "source"
+    source_result = Feature(geometry=Point((source_result['lon'], source_result['lat'])), properties=source_result)
+    
+    # Crear una lista de features
     features_taget = []
     for feature in target_final:
         # Crear un punto GeoJSON para cada lugar
         point = Point((feature['lon'], feature['lat']))
         # Crear una característica GeoJSON para el punto
         feature["centroid"] = feature['lon'], feature['lat']
-        feature["type"] = _type
+        feature["type"] = "target"
         feature = Feature(geometry=point, properties=feature)
         features_taget.append(feature)
-    return {
-        "suma_viajes": max_suma_viajes,
-        "features_taget": features_taget
-    }
-
-@app.route('/filter_data', methods=['POST'])
-def filter_data():
-    data_body = get_data_body(request)
-    field = [key for key, value in data_body["query_target"].items() if len(value) != 0 and key.startswith("taz_")][0]
-    results_queries_initial = execute_queries_initial(query_limit=data_body["query_limit"], query_target=data_body["query_target"], query_order_by=data_body["query_order_by"], field=field)    
-    one_data_centroid = get_one_data_centroid(query_target=data_body["query_target"], query_type=data_body["query_type"], field=field)
-    multiple_data_centroid = get_multiple_data_centroid(one_data_centroid=one_data_centroid, query_type=data_body["query_type"], field=field, results_queries_initial=results_queries_initial)
 
     response = {
         'status': 'success',
         'data': {
-            'source': one_data_centroid,
-            'target': multiple_data_centroid["features_taget"],
-            'url_xlsx' : create_query_get_data_for_export_excel(query_target=data_body["query_target"], table_name='source_target_parquet_data_mayo_2019'),
-            'sum_all_viajes': results_queries_initial[1][0]['sum_viajes_all'],
-            "suma_viajes": multiple_data_centroid["suma_viajes"]
+            'source': source_result,
+            'target': features_taget,
+            'url_xlsx' : create_query_get_data_for_export_excel(query_target=query_target, table_name='source_target_parquet_data_mayo_2019'),
+            'sum_all_viajes': results[1][0]['sum_viajes_all'],
+            "suma_viajes": max_suma_viajes
         }
     }
 
