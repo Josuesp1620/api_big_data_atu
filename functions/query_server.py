@@ -49,7 +49,7 @@ def create_query_get_data_for_arc_layer(query_target, table_name, field, limit=5
 
     filtered_query = {key: value for key, value in query_target.items() if len(value) != 0}
 
-    if(field == 'taz_dist_d'):
+    if(field.endswith("_d")):
         if('dist' in field):
             field = field.replace('_dist_d', '_dist_o')
         else:

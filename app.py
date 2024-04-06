@@ -67,7 +67,7 @@ def execute_queries_initial(query_target, query_limit, query_order_by, field):
 def get_one_data_centroid(query_target, query_type, field):
     _type = "source"
 
-    if(field == 'taz_dist_d'):
+    if(field.endswith("_d")):
         _type = "target"
 
     # Obtener los datos fuente
@@ -82,7 +82,7 @@ def get_one_data_centroid(query_target, query_type, field):
 def get_multiple_data_centroid(one_data_centroid, query_type, field, results_queries_initial):
     max_suma_viajes = 0
     _type = "target"
-    if(field == 'taz_dist_d'):
+    if(field.endswith("_d")):
         _type = "source"
         if('dist' in field):
             field = field.replace('_dist_d', '_dist_o')
