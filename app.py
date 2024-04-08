@@ -42,7 +42,7 @@ def get_data_body(request):
         "query_order_by": query_order_by
     }
 
-def execute_queries_initial(query_target, query_limit, query_order_by, field):
+def execute_queries_initial(query_target, query_limit, query_order_by, field, credentials):
     # Función para realizar una consulta
     def execute_query(params):
         # Aquí deberías tener la lógica para ejecutar tu consulta utilizando la API
@@ -54,7 +54,7 @@ def execute_queries_initial(query_target, query_limit, query_order_by, field):
         query_destination = create_query_get_data_for_arc_layer(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', limit=query_limit, order_by=query_order_by, field=field)
         query_sum_all = create_query_sum_all_viajes(query_target=query_target, table_name='source_target_parquet_data_mayo_2019')
         # query_all = create_query_get(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', columns="all")
-        return [{"sql": query_destination}, {"sql": query_sum_all}]
+        return [{"sql": query_destination, "credentials": credentials}, {"sql": query_sum_all, "credentials": credentials}]
         # Obtiene las consultas a ejecutar
     queries = create_queries()
 
@@ -64,14 +64,14 @@ def execute_queries_initial(query_target, query_limit, query_order_by, field):
         results = list(executor.map(execute_query, queries))
     return results
 
-def get_one_data_centroid(query_target, query_type, field):
+def get_one_data_centroid(query_target, query_type, field, credentials):
     _type = "source"
 
     if(field.endswith("_d")):
         _type = "target"
 
     # Obtener los datos fuente
-    result = get_data_centroid_api(body={"taz":query_target[field][0]}, tag_name="data_centroid", name_name=query_type)[0]
+    result = get_data_centroid_api(body={"taz":query_target[field][0]}, tag_name="data_centroid", name_name=query_type, credentials=credentials)[0]
     del result['geometry']
     # Crear una lista de features
     result["centroid"] = result['lon'], result['lat']
@@ -79,7 +79,7 @@ def get_one_data_centroid(query_target, query_type, field):
     result = Feature(geometry=Point((result['lon'], result['lat'])), properties=result)
     return result
 
-def get_multiple_data_centroid(one_data_centroid, query_type, field, results_queries_initial):
+def get_multiple_data_centroid(one_data_centroid, query_type, field, results_queries_initial, credentials):
     max_suma_viajes = 0
     _type = "target"
     if(field.endswith("_d")):
@@ -96,7 +96,7 @@ def get_multiple_data_centroid(one_data_centroid, query_type, field, results_que
     # Función para obtener los datos del API de centroides
     def get_centroid_data(item, field):
         nonlocal max_suma_viajes
-        target = get_data_centroid_api(body={"taz":item[field]}, tag_name="data_centroid", name_name=query_type)[0]                
+        target = get_data_centroid_api(body={"taz":item[field]}, tag_name="data_centroid", name_name=query_type, credentials=credentials)[0]                
         if item[field] == one_data_centroid["properties"]["taz"]:
             points = Random_Points_in_Polygon(loads(target["geometry"]), 1)        
             target['lat'] = points[0].y
@@ -133,13 +133,23 @@ def get_multiple_data_centroid(one_data_centroid, query_type, field, results_que
         "features_taget": features_taget
     }
 
+def getUserCredentials():
+    # Obtener las credenciales de la URL (si existen)
+    username = request.authorization.username if request.authorization else None
+    password = request.authorization.password if request.authorization else None
+    return {
+        "user": username,
+        "password": password,
+    }
+
 @app.route('/filter_data', methods=['POST'])
 def filter_data():
     data_body = get_data_body(request)
+    credentials = getUserCredentials()
     field = [key for key, value in data_body["query_target"].items() if len(value) != 0 and key.startswith("taz_")][0]
-    results_queries_initial = execute_queries_initial(query_limit=data_body["query_limit"], query_target=data_body["query_target"], query_order_by=data_body["query_order_by"], field=field)    
-    one_data_centroid = get_one_data_centroid(query_target=data_body["query_target"], query_type=data_body["query_type"], field=field)
-    multiple_data_centroid = get_multiple_data_centroid(one_data_centroid=one_data_centroid, query_type=data_body["query_type"], field=field, results_queries_initial=results_queries_initial)
+    results_queries_initial = execute_queries_initial(query_limit=data_body["query_limit"], query_target=data_body["query_target"], query_order_by=data_body["query_order_by"], field=field, credentials=credentials)    
+    one_data_centroid = get_one_data_centroid(query_target=data_body["query_target"], query_type=data_body["query_type"], field=field, credentials=credentials)
+    multiple_data_centroid = get_multiple_data_centroid(one_data_centroid=one_data_centroid, query_type=data_body["query_type"], field=field, results_queries_initial=results_queries_initial, credentials=credentials)
 
     response = {
         'status': 'success',
@@ -162,7 +172,7 @@ def data_dash_board():
     del query_target["type"]
     del query_target["limit"]
     del query_target["order_by"]
-
+    credentials = getUserCredentials()
     def execute_query(params):
         return get_data_api(params=params)
 
@@ -174,7 +184,7 @@ def data_dash_board():
         query_motivo = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', f_calculate="motivo")
         query_genero = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', f_calculate="genero")
 
-        return [{"sql": query_horario}, {"sql": query_edad}, {"sql": query_nse}, {"sql": query_tipo_dia}, {"sql": query_motivo}, {"sql": query_genero}]
+        return [{"sql": query_horario, "credentials": credentials}, {"sql": query_edad, "credentials": credentials}, {"sql": query_nse, "credentials": credentials}, {"sql": query_tipo_dia, "credentials": credentials}, {"sql": query_motivo, "credentials": credentials}, {"sql": query_genero, "credentials": credentials}]
 
     queries = create_queries()
 

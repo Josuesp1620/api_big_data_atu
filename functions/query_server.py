@@ -5,8 +5,11 @@ import requests
 url = 'http://200.121.128.47:3072/api'
 
 def get_data_api(params):
+    user = params['credentials']['user']
+    password = params['credentials']['password']
+    del params['credentials']
     # Realizar la solicitud POST
-    response = requests.get(f'{url}/sql', params=params)
+    response = requests.get(f'{url}/sql', params=params, auth=(user, password))
     # Verificar el estado de la respuesta
     if response.status_code == 200:
         # La solicitud fue exitosa
@@ -15,9 +18,9 @@ def get_data_api(params):
         # La solicitud no fue exitosa, imprimir el código de estado
         print('Error al hacer la solicitud. Código de estado:', response.status_code)
 
-def get_data_centroid_api(params={'format':'json', 'limit':10}, body=None, tag_name=None, name_name=None):
+def get_data_centroid_api(params={'format':'json', 'limit':10}, body=None, tag_name=None, name_name=None, credentials=None):
     # Realizar la solicitud POST
-    response = requests.post(f'{url}/v1/{tag_name}/{name_name}', params=params, json=body)
+    response = requests.post(f'{url}/v1/{tag_name}/{name_name}', params=params, json=body, auth=(credentials["user"], credentials["password"]))
     # Verificar el estado de la respuesta
     if response.status_code == 200:
         # La solicitud fue exitosa
@@ -74,7 +77,6 @@ def create_query_get_data_for_arc_layer(query_target, table_name, field, limit=5
         query = query.orderby('suma_viajes', order=Order.desc)
     else:
         query = query.orderby('suma_viajes', order=Order.asc)
-    print(query)
     return str(query)
 
 def create_query_get_data_for_export_excel(query_target, table_name):
@@ -91,7 +93,7 @@ def create_query_get_data_for_export_excel(query_target, table_name):
         else:
             query = query.where(getattr(table, key) == value)
     sql_query = str(query).replace('\'', '')
-    return f'{url}/sql?sql={sql_query}&format=xlsx'
+    return f'{sql_query}'
 
 def download_files(url_download):
     # Realizar la solicitud GET para obtener el archivo
