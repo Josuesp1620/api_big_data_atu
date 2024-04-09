@@ -173,16 +173,18 @@ def data_dash_board():
     del query_target["limit"]
     del query_target["order_by"]
     credentials = getUserCredentials()
+    field = [key for key, value in query_target.items() if len(value) != 0 and key.startswith("taz_")][0]
+
     def execute_query(params):
         return get_data_api(params=params)
 
     def create_queries():
-        query_horario = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', f_calculate="horario")
-        query_edad = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', f_calculate="edad")
-        query_nse = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', f_calculate="nse")
-        query_tipo_dia = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', f_calculate="tipo_dia")
-        query_motivo = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', f_calculate="motivo")
-        query_genero = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', f_calculate="genero")
+        query_horario = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', field=field, f_calculate="horario")
+        query_edad = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', field=field, f_calculate="edad")
+        query_nse = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', field=field, f_calculate="nse")
+        query_tipo_dia = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', field=field, f_calculate="tipo_dia")
+        query_motivo = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', field=field, f_calculate="motivo")
+        query_genero = query_get_data_calculate_dashboard(query_target=query_target, table_name='source_target_parquet_data_mayo_2019', field=field, f_calculate="genero")
 
         return [{"sql": query_horario, "credentials": credentials}, {"sql": query_edad, "credentials": credentials}, {"sql": query_nse, "credentials": credentials}, {"sql": query_tipo_dia, "credentials": credentials}, {"sql": query_motivo, "credentials": credentials}, {"sql": query_genero, "credentials": credentials}]
 

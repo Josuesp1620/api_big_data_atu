@@ -110,12 +110,24 @@ def download_files(url_download):
     else:
         print('Error al descargar el archivo:', respuesta.status_code)
 
-def query_get_data_calculate_dashboard(query_target, table_name, f_calculate):
+def query_get_data_calculate_dashboard(query_target, table_name, field, f_calculate):
     table = Table(table_name)
 
     filtered_query = {key: value for key, value in query_target.items() if len(value) != 0}
 
-    query = Query.from_(table).select(f_calculate, fn.Cast(fn.Function('ROUND',fn.Sum(table.viajes), -1), enums.SqlTypes.INTEGER).as_('suma_viajes'))
+    
+    if(field.endswith("_d")):
+        if('dist' in field):
+            field = field.replace('_dist_d', '_dist_o')
+        else:
+            field = field.replace('_d', '_o')
+    else:
+        if('dist' in field):
+            field = field.replace('_dist_o', '_dist_d')
+        else:
+            field = field.replace('_o', '_d')
+
+    query = Query.from_(table).select(f_calculate, table[field].as_("taz"), fn.Cast(fn.Function('ROUND',fn.Sum(table.viajes), -1), enums.SqlTypes.INTEGER).as_('suma_viajes'))
 
     # WHERE dinámico
     for key, value in filtered_query.items():
@@ -126,4 +138,6 @@ def query_get_data_calculate_dashboard(query_target, table_name, f_calculate):
 
     # ORDER BY
     query = query.groupby(f_calculate)
+    query = query.groupby(field)
+
     return str(query)
