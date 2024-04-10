@@ -141,3 +141,22 @@ def query_get_data_calculate_dashboard(query_target, table_name, field, f_calcul
     query = query.groupby(field)
 
     return str(query)
+
+def query_get_data_calculate_dashboard_all(query_target, table_name, f_calculate):
+    table = Table(table_name)
+
+    filtered_query = {key: value for key, value in query_target.items() if len(value) != 0}
+
+    query = Query.from_(table).select(f_calculate, fn.Cast(fn.Function('ROUND',fn.Sum(table.viajes), -1), enums.SqlTypes.INTEGER).as_('suma_viajes'))
+
+    # WHERE dinámico
+    for key, value in filtered_query.items():
+        if isinstance(value, list):
+            query = query.where(getattr(table, key).isin(value))
+        else:
+            query = query.where(getattr(table, key) == value)
+
+    # ORDER BY
+    query = query.groupby(f_calculate)
+
+    return str(query)
